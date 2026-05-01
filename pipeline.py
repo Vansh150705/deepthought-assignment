@@ -1,20 +1,3 @@
-"""
-DeepThought Business Analytics Internship
-Company Research Pipeline — Scraping + ICP Scoring
-Chennai | Specialty Biotech + Diagnostics Segment
-
-This script:
-1. Takes a list of company websites
-2. Scrapes key pages per company (about, products, leadership, news, careers)
-3. Sends concatenated text to Claude Haiku for ICP scoring
-4. Stores results in a structured CSV
-5. Flags borderline cases for human QA
-
-Dependencies:
-    pip install playwright anthropic pandas tqdm fuzzywuzzy
-    playwright install chromium
-"""
-
 import asyncio
 import json
 import re
@@ -23,8 +6,6 @@ import pandas as pd
 from tqdm import tqdm
 from playwright.async_api import async_playwright
 import anthropic
-
-# ─── CONFIG ───────────────────────────────────────────────────────────────────
 
 PAGES_TO_SCRAPE = [
     "",           # Homepage
@@ -45,15 +26,13 @@ PAGES_TO_SCRAPE = [
     "/contact",
 ]
 
-MAX_TOKENS_PER_COMPANY = 8000   # ~6000 words — fits in Haiku context
-RATE_LIMIT_DELAY = 2.0           # seconds between page requests (politeness)
-MAX_WORKERS = 4                  # parallel scrapers
+MAX_TOKENS_PER_COMPANY = 8000   
+RATE_LIMIT_DELAY = 2.0          
+MAX_WORKERS = 4                 
 HAIKU_MODEL = "claude-haiku-4-5-20251001"
 SONNET_MODEL = "claude-sonnet-4-6"
 BORDERLINE_LOWER = 40
 BORDERLINE_UPPER = 60
-
-# ─── SCRAPER ──────────────────────────────────────────────────────────────────
 
 async def scrape_company(browser, url_base: str) -> str:
     """Scrape multiple pages of a company website and return concatenated text."""
@@ -68,8 +47,6 @@ async def scrape_company(browser, url_base: str) -> str:
             page = await context.new_page()
             await page.goto(url, timeout=10000, wait_until="domcontentloaded")
             await asyncio.sleep(RATE_LIMIT_DELAY)
-
-            # Extract visible text
             text = await page.evaluate("""
                 () => {
                     const elements = document.querySelectorAll(
@@ -86,17 +63,12 @@ async def scrape_company(browser, url_base: str) -> str:
             await page.close()
 
         except Exception as e:
-            # Silently skip pages that 404 or timeout
             pass
 
     await context.close()
 
     combined = "\n\n".join(all_text)
-    # Trim to max tokens (rough estimate: 1 token ≈ 4 chars)
     return combined[:MAX_TOKENS_PER_COMPANY * 4]
-
-
-# ─── ICP SCORING PROMPT ───────────────────────────────────────────────────────
 
 SCORING_SYSTEM_PROMPT = """You are a business analyst scoring Indian manufacturing companies
 against an Ideal Customer Profile (ICP) for a B2B consulting firm.
@@ -155,8 +127,6 @@ Return ONLY this JSON (no other text):
 }}"""
 
 
-# ─── SCORING FUNCTION ─────────────────────────────────────────────────────────
-
 def score_weights(score_str: str, weight: int) -> float:
     mapping = {"Strong": weight, "Moderate": weight / 2, "Weak": 0}
     return mapping.get(score_str, 0)
@@ -193,10 +163,10 @@ def call_claude(website_text: str, model: str, client: anthropic.Anthropic) -> d
             ],
         )
         raw_text = response.content[0].text.strip()
-        # Strip any accidental markdown code fences
+        
         raw_text = re.sub(r"```json|```", "", raw_text).strip()
         result = json.loads(raw_text)
-        # Compute federer score if not computed by model
+        
         if result.get("federer_score", 0) == 0 and not result.get("auto_disqualify"):
             result["federer_score"] = compute_federer_score(result)
         return result
@@ -204,10 +174,8 @@ def call_claude(website_text: str, model: str, client: anthropic.Anthropic) -> d
         return {"error": str(e), "auto_disqualify": False, "federer_score": 0, "verdict": "error"}
 
 
-# ─── AUTO QA FLAGS ────────────────────────────────────────────────────────────
-
 AUTO_QA_RULES = [
-    # (flag_name, condition_fn)
+    
     (
         "iso_only_c3",
         lambda r: (
@@ -261,16 +229,12 @@ def apply_auto_qa(result: dict) -> list:
             pass
     return flags
 
-
-# ─── MAIN PIPELINE ────────────────────────────────────────────────────────────
-
 async def process_company(browser, company: dict, client: anthropic.Anthropic) -> dict:
     """Scrape + score one company. Returns enriched company dict."""
     website = company.get("website", "")
     if not website.startswith("http"):
         website = "https://" + website
 
-    # Step 1: Scrape
     try:
         website_text = await scrape_company(browser, website)
     except Exception as e:
@@ -282,19 +246,16 @@ async def process_company(browser, company: dict, client: anthropic.Anthropic) -
         company["federer_score"] = 0
         return company
 
-    # Step 2: AI First-Pass Scoring (Haiku)
     result = call_claude(website_text, HAIKU_MODEL, client)
     company.update(result)
     company["model_used"] = HAIKU_MODEL
 
-    # Step 3: Borderline Re-Score with Sonnet
     score = result.get("federer_score", 0)
     if BORDERLINE_LOWER <= score <= BORDERLINE_UPPER and not result.get("auto_disqualify"):
         sonnet_result = call_claude(website_text, SONNET_MODEL, client)
         company.update(sonnet_result)
         company["model_used"] = SONNET_MODEL
 
-    # Step 4: Auto QA Flags
     company["qa_flags"] = apply_auto_qa(company)
     company["needs_human_qa"] = bool(company["qa_flags"])
 
@@ -306,13 +267,12 @@ async def run_pipeline(input_csv: str, output_csv: str):
     df = pd.read_csv(input_csv)
     companies = df.to_dict("records")
 
-    client = anthropic.Anthropic()  # API key from environment
+    client = anthropic.Anthropic()  #
     results = []
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
 
-        # Process companies with concurrency limit
         semaphore = asyncio.Semaphore(MAX_WORKERS)
 
         async def process_with_semaphore(company):
@@ -326,10 +286,9 @@ async def run_pipeline(input_csv: str, output_csv: str):
 
         await browser.close()
 
-    # Save results
     results_df = pd.DataFrame(results)
     results_df.to_csv(output_csv, index=False)
-    print(f"\n✅ Pipeline complete. {len(results_df)} companies scored.")
+    print(f"\n Pipeline complete. {len(results_df)} companies scored.")
     print(f"   Strong pass (80+): {len(results_df[results_df['federer_score'] >= 80])}")
     print(f"   Pass (60–79):      {len(results_df[(results_df['federer_score'] >= 60) & (results_df['federer_score'] < 80)])}")
     print(f"   Borderline (40–59): {len(results_df[(results_df['federer_score'] >= 40) & (results_df['federer_score'] < 60)])}")
@@ -338,17 +297,13 @@ async def run_pipeline(input_csv: str, output_csv: str):
     print(f"\nResults saved to: {output_csv}")
 
 
-# ─── DEDUPLICATION UTILITY ────────────────────────────────────────────────────
-
 def deduplicate_companies(df: pd.DataFrame) -> pd.DataFrame:
     """Remove duplicate companies by fuzzy name matching + CIN matching."""
     from fuzzywuzzy import fuzz
 
-    # First pass: exact CIN match
     if "cin" in df.columns:
         df = df.drop_duplicates(subset=["cin"], keep="first")
 
-    # Second pass: fuzzy name match (threshold: 90)
     names = df["company_name"].str.lower().str.strip().tolist()
     to_drop = set()
     for i in range(len(names)):
@@ -364,8 +319,6 @@ def deduplicate_companies(df: pd.DataFrame) -> pd.DataFrame:
     print(f"Deduplication: removed {len(to_drop)} duplicates. {len(df)} unique companies remain.")
     return df.reset_index(drop=True)
 
-
-# ─── ENTRY POINT ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import sys
