@@ -164,4 +164,4 @@ Of ~80 companies initially identified or named, 6–7 genuine passes were found,
 
 ---
 
-*Submitted by: [Your Name] | Internship Application: DeepThought Business Analytics | May 2026*
+*Submitted by: Vansh Mahajan | Internship Application: DeepThought Business Analytics | May 2026*
