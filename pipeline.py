@@ -8,7 +8,7 @@ from playwright.async_api import async_playwright
 import anthropic
 
 PAGES_TO_SCRAPE = [
-    "",           # Homepage
+    "",           
     "/about",
     "/about-us",
     "/products",
