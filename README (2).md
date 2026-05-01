@@ -1,7 +1,7 @@
 # DeepThought Business Analytics Internship Assignment
 ## Target Company Research — Chennai | Specialty Biotech + Diagnostics
 
-**Submitted by:** [Your Name]
+**Submitted by:** Vansh Mahajan
 **Date:** May 2026
 **Assignment:** Business Analytics Role Simulation — Federer Company Research
 
@@ -92,4 +92,4 @@ This assignment required significant discipline to avoid AI hallucination. My ap
 
 ---
 
-*Questions about methodology or data sources: [your email]*
+*Questions about methodology or data sources: vansh150705@gmail.com*
