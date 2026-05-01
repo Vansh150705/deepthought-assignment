@@ -486,4 +486,4 @@ For each Priority-200 company, add:
 
 *This proposal is the written version submitted to GitHub. A hand-drawn diagram showing the sourcing funnel, weekly flow, tools at each stage, and quality checkpoints has been submitted separately in the Internshala chat window.*
 
-*DeepThought | PDGMS — AI Execution Workspace | Submitted by: [Your Name] | May 2026*
+*DeepThought | PDGMS — AI Execution Workspace | Submitted by: Vansh Mahajan | May 2026*
